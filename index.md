@@ -44,6 +44,25 @@ Hetkel on meil kasutusel Redux thunk, mis pakib Action meetodi ümber omakorda m
 * `getState()` - tagastab hetkel kehtiva store
 * `dispatch()` - võimaldab välja kutsuda store muutmise meetodeid (reducer)
 
+View:
+```javascript
+class MyView extends PureComponent {
+  handleClick = () => {
+    const { userId, fetchUser } = this.props;
+    fetchUser(userid);
+  }
+
+  render() {
+    <button onClick={ this.handleClick }>
+      Fetch user info
+    </button>
+  }
+}
+const mapDispatchToProps = dispatch => bindActionCreators({ fetchUser }, dispatch);
+export default connect(undefined, mapDispatchToProps)(MyView);
+```
+
+Action-thunk:
 ```javascript
 function fetchUser(id) {
 
@@ -51,20 +70,114 @@ function fetchUser(id) {
   // capable of reading current store
   // and sending updates to state
   return async (dispatch, getState) => {
-    
+
     // Reading current store
     const state = getsSate();
-    
+
     if (state.user.id !== id) {
 
       // Communicating with api asynchronously
-      const user = await ajax('GET', `/user/${ id }`):
-      
+      try {
+        const user = await ajax('GET', `/user/${ id }`):
+      } catch() {
+        // calling reducer to update state to notify error
+        dispatch({ type: 'SET_USER_FETCH_ERROR', userId: id });
+      }
+
       // calling reducer to update state
-      dispatch({ type: 'SET_USER', user }):
+      dispatch({ type: 'SET_USER', user });
 
     }
   }
 }
 ```
+### Redux-saga
+
+Redux-Saga loogika järgi kasutaja event tagajärjel kutsutakse välja `dispatch()` meetod. See on justkui globaalne event 
+rakenduse storel, mis teavitab, et midagi juhtus/tehti.
+Saga võimekus kõikki store evente kuulata ja selle tagakärjel käivitauda.
+
+
+
+View:
+```javascript
+class MyView extends PureComponent {
+  handleClick = () => {
+    const { userId, dispatch } = this.props;
+    dispatch({
+      type: 'USER_CLICKED_FETCH_INFO',
+      userId: userId
+    });
+  }
+
+  render() {
+    <button onClick={ this.handleClick }>
+      Fetch user info
+    </button>
+  }
+}
+const mapDispatchToProps = dispatch => ({ dispatch });
+export default connect(undefined, mapDispatchToProps)(MyView);
+```
+
+```javascript
+
+function* fetchUserInfo(action) {
+  const { userId } = action;
+
+  // Reading reading current store state
+  const currentState = yield select();
+
+  if (state.user.id !== userId) {
+
+    // Communicating with api asynchronously
+    try {
+      const user = yield ajax('GET', `/user/${ userId }`):
+    } catch() {
+      // calling reducer to update state to notify error
+      yield put({ type: 'SET_USER_FETCH_ERROR', userId: userId });
+    }
+
+    // calling reducer to update state
+    yield put({ type: 'SET_USER', user });
+  }
+}
+
+function* userSaga() {
+  yield all([
+    takeLatest([ 'USER_CLICKED_FETCH_INFO' ], fetchUserInfo),
+  ]);
+}
+
+export default initializeApp;
+```
+
+Üldpildis on saga meetod sisult samasugune kui thunk asünk meetod aga selliste asendustega:
+
+* `dispatch()` -> `yield put()`
+* `getState()` -> `yeild select()`
+* `await` -> `yield`
+
+# Küsimus: miks kolida generaator funktsioonidele?
+
+Kui pea ainuke vahe tundub olema asynk funktsiooni asendamine saga wrapitud generaator funktsiooniga, siis miks? Mis kasu see toob?
+Probleem seisneb selles, et asynk funktsioonil pole mingit sisemist võimekust ennast peatada kui ta käima on lastud.
+Ehk kui süütad, siis põleb lõpuni.
+
+Redux-Saga kasutab js generaator funktsioone, et sisuliselt taasluua
+asynk funktsioonide funktsionaalsus aga koos võimekusega:
+
+* Katkestada koodi käivitumine asünkroonsete ettappide vahel
+* Propageerida see katkestamine ka sisemistele generaator funktsioonidele
+* Anda võimekus igale generaator funktsioonile teha koristustöid juhul kui ta katsekstatakse
+
+Lisaks Pakub Redyux saga:
+
+* Mitmes kohas sama sündmuse peale millegi tegemise (parem eristatus koodi osade vahel - iga kood saab paremine vastutada ainult enda eest)
+* Meetodid protsesside jälgimiseks ja katkestamiseks (eventide race, viimane jääb peale, mõne muu protsessi algus katkestab käimasoleva, jne)
+* 
+
+Kahjuks sellega tuleb kaasa ka tavaline event based süsteemide puudus,
+et on keerulisem jälgida kas eventi peale keegi midagi ka tegi ja ka taguspidi, et kes selle eventi saatis.
+Siin aitab ainult ühtne kokkulepitud struktuur, koodi puhtus ja *common sense*. Esimene neist kusjuures kõige olulisem.
 

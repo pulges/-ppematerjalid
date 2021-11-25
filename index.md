@@ -132,7 +132,7 @@ function* fetchUserInfo(action) {
 
     // Communicating with api asynchronously
     try {
-      const user = yield ajax('GET', `/user/${ userId }`):
+      const user = yield ajax('GET', `/user/${ userId }`);
     } catch() {
       // calling reducer to update state to notify error
       yield put({ type: 'SET_USER_FETCH_ERROR', userId: userId });
@@ -158,7 +158,7 @@ export default initializeApp;
 * `getState()` -> `yeild select()`
 * `await` -> `yield`
 
-# Küsimus: miks kolida generaator funktsioonidele?
+# Küsimus: miks kolida saga-generaator funktsioonidele?
 
 Kui pea ainuke vahe tundub olema asynk funktsiooni asendamine saga wrapitud generaator funktsiooniga, siis miks? Mis kasu see toob?
 Probleem seisneb selles, et asynk funktsioonil pole mingit sisemist võimekust ennast peatada kui ta käima on lastud.
@@ -171,13 +171,71 @@ asynk funktsioonide funktsionaalsus aga koos võimekusega:
 * Propageerida see katkestamine ka sisemistele generaator funktsioonidele
 * Anda võimekus igale generaator funktsioonile teha koristustöid juhul kui ta katsekstatakse
 
-Lisaks Pakub Redyux saga:
+Lisaks Pakub Redux saga:
 
 * Mitmes kohas sama sündmuse peale millegi tegemise (parem eristatus koodi osade vahel - iga kood saab paremine vastutada ainult enda eest)
 * Meetodid protsesside jälgimiseks ja katkestamiseks (eventide race, viimane jääb peale, mõne muu protsessi algus katkestab käimasoleva, jne)
-* 
 
 Kahjuks sellega tuleb kaasa ka tavaline event based süsteemide puudus,
 et on keerulisem jälgida kas eventi peale keegi midagi ka tegi ja ka taguspidi, et kes selle eventi saatis.
 Siin aitab ainult ühtne kokkulepitud struktuur, koodi puhtus ja *common sense*. Esimene neist kusjuures kõige olulisem.
+
+Lisaks on üpris lihtne kasutada asynk meetodied saga generaatori sees, asenda  `await` -> `yield`. Tagurpidi aga 
+on vaja mingi kaval wrapper ehitada ja keerulisem märgatavalt.
+
+## Lühidalt `function*`
+
+Sisuliselt selline spetsiaalne funktsioon, mis iga kord next() küsides tagastab järgmise talle antud yield väärtuse.
+
+```javascript
+function* anotherGenerator(i) {
+  yield i + 1;
+  yield i + 2;
+  yield i + 3;
+}
+
+function* generator(i) {
+  yield i;
+  yield* anotherGenerator(i);
+  yield i + 10;
+
+  return "END";
+}
+
+var gen = generator(10);
+
+console.log(gen.next().value); // 10
+console.log(gen.next().value); // 11
+console.log(gen.next().value); // 12
+console.log(gen.next().value); // 13
+
+console.log(gen.next()); // { value: 20, done: false }
+console.log(gen.next()); // { value: "END", done: true }
+console.log(gen.next()); // { value: undefined, done: true }
+
+```
+
+Ehk justkui ei midagi maagilist ja pea kogu võimekkus, millest enne oli jutt, tuleneb saga meetoditest mis pannakse
+nende generaator funktsioonide ümber.
+
+# Saga efektid/meetodid
+
+Lihtsustatud kirjeldus on et Sagade seos Middlewarena ja ka effektid sisuliselt kutsuvad koguaeg välja next() kuni 
+pole öeldud et on katkestatud.
+
+* `select()` - tagastab küsimise hetkel kogu store state.
+* `put({ type: 'EVENT', data: data })` - kutsub välja redux `dispatch()` meetodi
+* `take('EVENT')` - ootab kuni juhtub event
+* `call(generaatorF)` - kutsu välja teine generaator
+* `all[generatorF, generatorF, generatorF, ...]` - jooksuta saagasid (generaatorid) paralleelselt. 
+  * Protsessid jooksevad paralleelselt, aga jäävad väljakutsuva generaatoriga seotuks. Ehk kui parent generaatorile
+    kutsutakse välja katkestus, siis samal hetkel saavad ka kõik alamgeneraatorid ja nende alamgeneraatorid katkestatud.
+  * Sagades on sama meetodi analoog meetod `fork(generaatorF)` - Spekis mõiste: *attached fork*
+* `spawn(generatorF)` - kutsu välja teine generaaator, aga ära oota tulemust ja kui parent katkestatakse, siis kutsutud
+  meetodit ei katkestata automaatselt. Spekis mõiste: *detached fork*
+* `takeEvery('EVENT', generatorF)`- iga kord kui kutsutakse 'EVENT' pannaks käima generatorF, mitu saab korraga joosta.
+* `takeLatest('EVENT', generatorF)`- iga kord kui kutsutakse 'EVENT' pannaks käima generatorF aga eelmised,
+   mis käima pandud, katkestatakse. Üks saab korraga koosta.
+
+# Hea tava arhitektuur
 

@@ -236,6 +236,45 @@ pole öeldud et on katkestatud.
 * `takeEvery('EVENT', generatorF)`- iga kord kui kutsutakse 'EVENT' pannaks käima generatorF, mitu saab korraga joosta.
 * `takeLatest('EVENT', generatorF)`- iga kord kui kutsutakse 'EVENT' pannaks käima generatorF aga eelmised,
    mis käima pandud, katkestatakse. Üks saab korraga koosta.
+* `yield race({ [ key: string ]: saga })` - defineerib mitu sagat omavahel race konditsiooniga, et ühe käivitus katkestab teised
+
+   ```javascript
+    takeEvery([
+      'SET_ACTIVE_TAB'
+    ], function* (action) {
+      yield race({
+        task: call(loadChartsOnTabLoad, action),
+        cancel1: take('TOKEN_CURRENT_FILTER_CHANGE_STARTED'),
+        cancel2: take('TOKEN_BASE_FILTER_CHANGE_STARTED'),
+      });
+    }),
+   ```
 
 # Hea tava arhitektuur
 
+1. Eventid, mida kasutaja tegi, suunata alati läbi saga, anda selgelt prefixiga eristuv nimi ja mitte siduda otse
+  reduceriga et muuta storet. Näiteks : `'USER_CLICKED_BUTON'`. See on selleks, et teada kust poolt event tuli,
+  kas süsteemist või kasutaja intent. See teeb tihti järgmisele arendajal elu lihtsamaks, kes sama meetodit edasi
+  keerulisemaks arendab.
+
+2. Ära dispatchi poolikuid state vaid kogu kokku kogu info mis vaja täis muudatuse tegemiseks ja siis tee lõpus üks
+  suur `batch()` mille sees on kõik muudatuste dispatchid. Sellisena ei pea sa muretsema kuidas rollbackida state seisu
+  kui saga generaator katkestatakse. Samuti vähendad rendereid ja poolikutest statedest tekkivaid vigu ja iffide rägastikku.
+
+Flow näide
+```mermaid
+flowchart TB
+  subgraph Generator-Saga
+    takeLatest[takeLatest\nUSER_CLICKED_LOAD]
+
+    takeLatest --> call1[call\nsetLoading]
+
+    call1 --> call2[call\najax_fetch data1]
+    call2 --> call3[call\najax_fetch data2]
+    call3 --> call4[call\najax_fetch data3]
+
+    call4 --> calculate[calculate sum: data1, data2, data3 ]
+
+    calculate --> batchAll[put data1\nput data2\nput data3\nput sum\nsetReady]
+  end
+```

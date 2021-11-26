@@ -236,11 +236,33 @@ pole öeldud et on katkestatud.
 * `select()` - tagastab küsimise hetkel kogu store state.
 * `put({ type: 'EVENT', data: data })` - kutsub välja redux `dispatch()` meetodi
 * `take('EVENT')` - ootab kuni juhtub event
-* `call(generaatorF)` - kutsu välja teine generaator
+
+  ```javascript
+  function* updateChartsOnTokenFilterChange(action) {
+    // wait when data.breakdowns has finished clearing up before continuing
+    yield take('DATA_BREAKEDOWNS_CLEARED');
+
+    ...
+  }
+   ```
+
 * `all[generatorF, generatorF, generatorF, ...]` - jooksuta saagasid (generaatorid) paralleelselt. 
   * Protsessid jooksevad paralleelselt, aga jäävad väljakutsuva generaatoriga seotuks. Ehk kui parent generaatorile
     kutsutakse välja katkestus, siis samal hetkel saavad ka kõik alamgeneraatorid ja nende alamgeneraatorid katkestatud.
-  * Sagades on sama meetodi analoog meetod `fork(generaatorF)` - Spekis mõiste: *attached fork*
+  * Sagades on veel sama meetodi analoog meetod `fork(generaatorF)` - Spekis mõiste: *attached fork*
+  * Nagu `Promise.all([])` saab  ka `yield all([])`  mitu returni kinni püüda 
+
+    ```javascript
+    const [
+      mvcEnv,
+      appList
+    ] =  yield all([
+      call(fetchMvcEnvironment),
+      call(fetchApplicationsLists)
+    ]);
+    ```
+    
+* `call(generaatorF)` - kutsu välja teine generaator
 * `spawn(generatorF)` - kutsu välja teine generaaator, aga ära oota tulemust ja kui parent katkestatakse, siis kutsutud
   meetodit ei katkestata automaatselt. Spekis mõiste: *detached fork*
 * `takeEvery('EVENT', generatorF)`- iga kord kui kutsutakse 'EVENT' pannaks käima generatorF, mitu saab korraga joosta.

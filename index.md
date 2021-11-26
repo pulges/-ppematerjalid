@@ -175,13 +175,21 @@ Lisaks Pakub Redux saga:
 
 * Mitmes kohas sama sündmuse peale millegi tegemise (parem eristatus koodi osade vahel - iga kood saab paremine vastutada ainult enda eest)
 * Meetodid protsesside jälgimiseks ja katkestamiseks (eventide race, viimane jääb peale, mõne muu protsessi algus katkestab käimasoleva, jne)
+* Lihtsamat viisi kirjutada unit-teste kui oli asynk meetodite puhul (ka lihtsam ajax fetch mockimine) https://redux-saga.js.org/docs/advanced/Testing
 
-Kahjuks sellega tuleb kaasa ka tavaline event based süsteemide puudus,
-et on keerulisem jälgida kas eventi peale keegi midagi ka tegi ja ka taguspidi, et kes selle eventi saatis.
-Siin aitab ainult ühtne kokkulepitud struktuur, koodi puhtus ja *common sense*. Esimene neist kusjuures kõige olulisem.
+### Puudused:
 
-Lisaks on üpris lihtne kasutada asynk meetodied saga generaatori sees, asenda  `await` -> `yield`. Tagurpidi aga 
-on vaja mingi kaval wrapper ehitada ja keerulisem märgatavalt.
+  * Kahjuks tuleb kaasa ka tavaline event based süsteemide puudus,
+  et on keerulisem jälgida kas eventi peale keegi midagi ka tegi ja ka taguspidi, et kes selle eventi saatis.
+  Siin aitab ainult ühtne kokkulepitud struktuur, koodi puhtus ja *common sense*. Esimene neist kusjuures kõige olulisem.
+
+  * asynk meetodied saga generaatori sees on üpris lihtne kasutada. Asenda  `await` -> `yield`. Tagurpidi aga 
+  on vaja mingi kaval wrapper ehitada ja keerulisem märgatavalt.
+
+  * Typescript ei ole väga hästi generaator funktsioonide sellisele kasutusele (kus vaheväärtusi justkui ei kasutata)
+  järgi jõudnud ja arvan, et lähiajal ei jõua ka (Erinevate keelemaailmade konflikt Typescript arendajate peas).
+  Seega Typescript tihti kipub mikrofoni nurka viskama ja nõuab, et arendaja ütleks käsitsi, mis tüüp generaatorist
+  välja tuli.
 
 ## Lühidalt `function*`
 
@@ -222,6 +230,8 @@ nende generaator funktsioonide ümber.
 
 Lihtsustatud kirjeldus on et Sagade seos Middlewarena ja ka effektid sisuliselt kutsuvad koguaeg välja next() kuni 
 pole öeldud et on katkestatud.
+
+### Peamised meetodid:
 
 * `select()` - tagastab küsimise hetkel kogu store state.
 * `put({ type: 'EVENT', data: data })` - kutsub välja redux `dispatch()` meetodi
@@ -278,3 +288,8 @@ flowchart TB
     calculate --> batchAll[put data1\nput data2\nput data3\nput sum\nsetReady]
   end
 ```
+
+# Lingid
+
+* Redux-Saga õppematerjal - https://redux-saga.js.org/docs/introduction/GettingStarted/
+* function* -  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*
